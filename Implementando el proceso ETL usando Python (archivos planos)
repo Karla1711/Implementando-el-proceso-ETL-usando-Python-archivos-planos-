@@ -1,0 +1,78 @@
+import glob 
+import pandas as pd 
+import xml.etree.ElementTree as ET 
+from datetime import datetime
+import requests
+from zipfile import ZipFile
+
+!wget https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-PY0221EN-SkillsNetwork/labs/module%206/Lab%20-%20Extract%20Transform%20Load/data/datasource.zip
+
+def get_data():
+    # Define the remote file to retrieve
+    remote_url = 'http://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-PY0221EN-SkillsNetwork/labs/module%206/Lab%20-%20Extract%20Transform%20Load/data/datasource.zip'
+    # Define the local filename to save data
+    local_file = 'datasource.zip'
+    # Make http request for remote file data
+    data = requests.get(remote_url)
+    # Save file data to local copy
+    with open(local_file, 'wb') as f:
+        f.write(data.content)
+    with ZipFile(local_file, 'r') as zipObj:
+        # Extract all the contents of zip file in different directory
+        zipObj.extractall('dealership_data')
+
+
+tmpfile    = "dealership_temp.tmp"               # store all extracted data
+
+logfile    = "dealership_logfile.txt"            # all event logs will be stored
+
+targetfile = "dealership_transformed_data.csv"   # transformed data is stored
+
+def extract_from_csv(file_to_process): 
+    dataframe = pd.read_csv(file_to_process) 
+    return dataframe
+
+def extract_from_json(file_to_process):
+    dataframe = pd.read_json(file_to_process, lines=True)
+    return dataframe
+
+def extract_from_xml(file_to_process):
+    dataframe = pd.DataFrame(columns=['car_model','year_of_manufacture','price', 'fuel'])
+    tree = ET.parse(file_to_process) 
+    root = tree.getroot() 
+    for person in root: 
+        car_model = person.find("car_model").text 
+        year_of_manufacture = int(person.find("year_of_manufacture").text)
+        price = float(person.find("price").text) 
+        fuel = person.find("fuel").text 
+        dataframe = dataframe.append({"car_model":car_model, "year_of_manufacture":year_of_manufacture, "price":price, "fuel":fuel}, ignore_index=True) 
+    return dataframe
+
+def log(message):
+  timestamp_format="%H:%M:%S-%h-%d-%Y"
+  #Hour-Minute-Second-MonthName-Day-Year
+  now = datetime.now() # get current timestamp
+  timestamp = now.strftime(timestamp_format)
+  with open("dealership_logfile.txt","a") as f: f.write(timestamp + ',' + message + 'n')
+
+ logfile    = "dealership_logfile.txt"            # all event logs will be stored
+targetfile = "dealership_transformed_data.csv"   # transformed data is stored
+
+log("Download Used Car Data")
+get_data()
+
+log("ETL Job Started")
+
+log("Extract phase Started")
+extracted_data = extract() 
+log("Extract phase Ended")
+
+log("Transform phase Started")
+transformed_data = transform(extracted_data)
+log("Transform phase Ended")
+
+log("Load phase Started")
+load(targetfile,transformed_data)
+log("Load phase Ended")
+
+log("ETL Job Ended")
